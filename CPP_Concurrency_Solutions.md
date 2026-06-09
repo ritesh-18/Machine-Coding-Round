@@ -1,11 +1,11 @@
-﻿# C++ Concurrency & Multithreading â€” Machine Coding Solutions
+# C++ Concurrency & Multithreading — Machine Coding Solutions
 
 > **Language:** C++17/20 | **Compiler flags:** `g++ -std=c++17 -pthread`
 > **Coverage:** Threads, Mutex, Deadlock, Condition Variables, Semaphores, Thread Pools, Atomics, Lock-free structures, Concurrent request handling
 
 ---
 
-# PATTERN 1 â€” Thread Basics & Mutex
+# PATTERN 1 — Thread Basics & Mutex
 
 ---
 
@@ -47,7 +47,7 @@ public:
             threads.emplace_back(workerTask, i, 100 * (i + 1));
         }
 
-        // join() â€” main thread blocks until each worker finishes
+        // join() — main thread blocks until each worker finishes
         for (auto& t : threads) {
             if (t.joinable()) t.join();
         }
@@ -81,16 +81,16 @@ int main() {
 
 ### Tradeoffs
 - **join() before destructor:** If a `std::thread` object is destroyed without calling `join()` or `detach()`, it calls `std::terminate()`. Always guard with RAII wrapper (`std::jthread` in C++20 auto-joins on destruction).
-- **std::jthread (C++20):** Preferred â€” automatically joins on destruction and supports cooperative cancellation via `stop_token`.
+- **std::jthread (C++20):** Preferred — automatically joins on destruction and supports cooperative cancellation via `stop_token`.
 
 ---
 
-## Q2. Mutex â€” Protecting Shared State
+## Q2. Mutex — Protecting Shared State
 
 ### Problem Statement
 Multiple threads increment a shared counter. Without synchronization, the result is non-deterministic (data race). Fix it using a mutex.
 
-**Real scenario:** Paytm's transaction counter, order ID generator â€” shared state accessed by concurrent request threads.
+**Real scenario:** Paytm's transaction counter, order ID generator — shared state accessed by concurrent request threads.
 
 - **Key concepts:** `std::mutex`, `std::lock_guard`, data race, critical section
 - **Asked at:** Paytm, Zerodha
@@ -105,11 +105,11 @@ Multiple threads increment a shared counter. Without synchronization, the result
 #include <vector>
 #include <iostream>
 
-// WRONG: Data race â€” undefined behaviour
+// WRONG: Data race — undefined behaviour
 class UnsafeCounter {
     int count_ = 0;
 public:
-    void increment() { ++count_; } // NOT atomic â€” read-modify-write is 3 instructions
+    void increment() { ++count_; } // NOT atomic — read-modify-write is 3 instructions
     int get() const  { return count_; }
 };
 
@@ -120,7 +120,7 @@ class SafeCounter {
 
 public:
     void increment() {
-        std::lock_guard<std::mutex> lock(mtx_); // RAII â€” unlocks when lock goes out of scope
+        std::lock_guard<std::mutex> lock(mtx_); // RAII — unlocks when lock goes out of scope
         ++count_;
     }
 
@@ -164,15 +164,15 @@ Result: **Undefined Behaviour** (UB) in C++. The compiler and CPU may reorder, e
 
 ### Tradeoffs
 - **`std::lock_guard`:** Simplest RAII lock. No manual unlock. Cannot be unlocked early.
-- **`std::unique_lock`:** More flexible â€” can unlock/relock, transfer ownership, use with condition variables.
+- **`std::unique_lock`:** More flexible — can unlock/relock, transfer ownership, use with condition variables.
 - **`std::scoped_lock` (C++17):** Locks multiple mutexes simultaneously without deadlock (uses deadlock avoidance algorithm internally).
 
 ---
 
-## Q3. Deadlock â€” What It Is and How It Happens
+## Q3. Deadlock — What It Is and How It Happens
 
 ### Problem Statement
-Two threads each hold one lock and try to acquire the other â€” neither can proceed. Demonstrate deadlock and explain detection.
+Two threads each hold one lock and try to acquire the other — neither can proceed. Demonstrate deadlock and explain detection.
 
 **Real scenario:** Two database transactions each holding a row lock and waiting for the other's row. Classic bank transfer deadlock.
 
@@ -208,13 +208,13 @@ void threadTwo_DEADLOCK() {
     std::cout << "Thread 2: locked A\n";     // NEVER REACHED
 }
 
-// FOUR CONDITIONS for deadlock (Coffman conditions â€” ALL must hold):
-// 1. Mutual Exclusion  â€” resource held exclusively
-// 2. Hold and Wait     â€” holding one resource while waiting for another
-// 3. No Preemption     â€” resource cannot be forcibly taken
-// 4. Circular Wait     â€” T1 waits for T2, T2 waits for T1
+// FOUR CONDITIONS for deadlock (Coffman conditions — ALL must hold):
+// 1. Mutual Exclusion  — resource held exclusively
+// 2. Hold and Wait     — holding one resource while waiting for another
+// 3. No Preemption     — resource cannot be forcibly taken
+// 4. Circular Wait     — T1 waits for T2, T2 waits for T1
 
-// FIX 1: Lock ordering â€” always acquire locks in the same global order
+// FIX 1: Lock ordering — always acquire locks in the same global order
 void threadOne_FIXED() {
     std::lock_guard<std::mutex> lockA(mtxA); // both threads: A first, then B
     std::lock_guard<std::mutex> lockB(mtxB);
@@ -227,7 +227,7 @@ void threadTwo_FIXED() {
     std::cout << "Thread 2 (fixed): locked A then B\n";
 }
 
-// FIX 2: std::scoped_lock (C++17) â€” acquires both atomically, no deadlock
+// FIX 2: std::scoped_lock (C++17) — acquires both atomically, no deadlock
 void transfer_SCOPED_LOCK(double& from, double& to, double amount,
                            std::mutex& fromMtx, std::mutex& toMtx) {
     std::scoped_lock lock(fromMtx, toMtx); // deadlock-free multi-lock
@@ -271,11 +271,11 @@ Thread 2 holds B, wants A  ---+
 ### Tradeoffs
 - **Lock ordering** is simple but requires knowing all locks upfront. Hard to maintain in large codebases.
 - **`scoped_lock` (C++17)** is the modern preferred solution for multi-mutex scenarios.
-- **Timeouts:** `std::timed_mutex::try_lock_for()` â€” if lock not acquired in time, release held locks and retry. Adds complexity but prevents permanent deadlock.
+- **Timeouts:** `std::timed_mutex::try_lock_for()` — if lock not acquired in time, release held locks and retry. Adds complexity but prevents permanent deadlock.
 
 ---
 
-## Q4. Lock Types â€” `lock_guard` vs `unique_lock` vs `scoped_lock`
+## Q4. Lock Types — `lock_guard` vs `unique_lock` vs `scoped_lock`
 
 ### Problem Statement
 Understand when to use each lock type. Implement a bank account with deposit/withdraw requiring flexible locking.
@@ -308,7 +308,7 @@ public:
         cv_.notify_one();
     }
 
-    // unique_lock: flexible â€” deferred lock, early unlock, movable, works with CV
+    // unique_lock: flexible — deferred lock, early unlock, movable, works with CV
     bool withdraw(double amount) {
         std::unique_lock<std::mutex> lock(mtx_);
 
@@ -351,7 +351,7 @@ public:
 // scoped_lock: lock MULTIPLE mutexes atomically (C++17)
 void transfer(BankAccount& from, BankAccount& to, double amount) {
     // Problem: can't use lock_guard for two mutexes (deadlock risk)
-    // Solution: scoped_lock â€” acquires all or none, in a deadlock-free order
+    // Solution: scoped_lock — acquires all or none, in a deadlock-free order
     // scoped_lock<std::mutex, std::mutex> lock(from.getMtx(), to.getMtx());
     // Then do transfer...
     // (Simplified: in real impl, expose mutex or make transfer a friend)
@@ -362,18 +362,18 @@ void transfer(BankAccount& from, BankAccount& to, double amount) {
 
 ### Quick Reference
 ```
-lock_guard    â€” simple RAII, cannot unlock early, no CV support
-unique_lock   â€” flexible: defer, try, timed, CV support, movable
-scoped_lock   â€” multiple mutexes atomically (C++17), replaces std::lock()
-shared_lock   â€” reader lock for shared_mutex (multiple readers OK)
+lock_guard    — simple RAII, cannot unlock early, no CV support
+unique_lock   — flexible: defer, try, timed, CV support, movable
+scoped_lock   — multiple mutexes atomically (C++17), replaces std::lock()
+shared_lock   — reader lock for shared_mutex (multiple readers OK)
 ```
 
 ---
 
-## Q5. Recursive Mutex â€” Re-entrant Locking
+## Q5. Recursive Mutex — Re-entrant Locking
 
 ### Problem Statement
-A function that holds a lock calls another function that also tries to acquire the same lock. With a regular mutex this deadlocks â€” use `std::recursive_mutex`.
+A function that holds a lock calls another function that also tries to acquire the same lock. With a regular mutex this deadlocks — use `std::recursive_mutex`.
 
 - **Key concepts:** Recursive mutex, re-entrant code, lock count
 - **Asked at:** Bloomberg, DE Shaw
@@ -394,12 +394,12 @@ public:
     void process() {
         std::lock_guard<std::recursive_mutex> lock(mtx_); // lock count: 1
         data_ += 10;
-        processInternal(); // calls a function that also locks â€” OK with recursive_mutex
+        processInternal(); // calls a function that also locks — OK with recursive_mutex
     }
 
 private:
     void processInternal() {
-        std::lock_guard<std::recursive_mutex> lock(mtx_); // lock count: 2 â€” same thread, OK
+        std::lock_guard<std::recursive_mutex> lock(mtx_); // lock count: 2 — same thread, OK
         data_ *= 2;
         // lock released: count -> 1
     }
@@ -415,7 +415,7 @@ public:
     void process() {
         std::lock_guard<std::mutex> lock(mtx_); // acquired
         data_ += 10;
-        // processInternal(); // DEADLOCK â€” tries to acquire mtx_ again on same thread
+        // processInternal(); // DEADLOCK — tries to acquire mtx_ again on same thread
     }
 };
 
@@ -437,15 +437,15 @@ public:
 
 ### Tradeoffs
 - **`recursive_mutex` pros:** Allows re-entrant locking; useful for recursive algorithms.
-- **`recursive_mutex` cons:** Slower than `mutex`. Often signals a design problem â€” prefer extracting `_nolock` versions.
+- **`recursive_mutex` cons:** Slower than `mutex`. Often signals a design problem — prefer extracting `_nolock` versions.
 - **Rule of thumb:** Prefer redesigning with `_nolock` internal functions over using `recursive_mutex`.
 
 ---
 
-## Q6. Read-Write Lock â€” `shared_mutex`
+## Q6. Read-Write Lock — `shared_mutex`
 
 ### Problem Statement
-Multiple threads read a shared cache simultaneously, but writes must be exclusive. Using a plain mutex forces sequential reads â€” use `shared_mutex` for concurrent reads.
+Multiple threads read a shared cache simultaneously, but writes must be exclusive. Using a plain mutex forces sequential reads — use `shared_mutex` for concurrent reads.
 
 **Real scenario:** In-memory config store (many readers, rare writes). DNS cache. Feature flag store.
 
@@ -478,7 +478,7 @@ public:
         return it->second;
     }
 
-    // WRITE: exclusive access â€” all readers blocked during write
+    // WRITE: exclusive access — all readers blocked during write
     void set(const std::string& key, const std::string& value) {
         std::unique_lock<std::shared_mutex> lock(rwMtx_); // exclusive (writer) lock
         config_[key] = value;
@@ -525,13 +525,13 @@ New readers: blocked while writer is waiting (to prevent writer starvation)
 ```
 
 ### Tradeoffs
-- **Writer starvation:** If readers continuously hold the lock, a writer may wait indefinitely. C++'s `shared_mutex` does NOT guarantee fairness â€” implementation-defined.
+- **Writer starvation:** If readers continuously hold the lock, a writer may wait indefinitely. C++'s `shared_mutex` does NOT guarantee fairness — implementation-defined.
 - **Read-heavy workloads:** `shared_mutex` shines when reads >> writes. For balanced read/write, plain `mutex` may be faster (less overhead).
-- **`shared_timed_mutex`:** Adds `try_lock_shared_for()` â€” useful when readers need timeout behaviour.
+- **`shared_timed_mutex`:** Adds `try_lock_shared_for()` — useful when readers need timeout behaviour.
 
 ---
 
-## Q7. Timed Mutex â€” Avoiding Indefinite Blocking
+## Q7. Timed Mutex — Avoiding Indefinite Blocking
 
 ### Problem Statement
 Acquire a lock but give up after a timeout instead of blocking forever. Essential for liveness guarantees.
@@ -564,7 +564,7 @@ public:
             std::cout << "Update succeeded: " << value << "\n";
             return true;
         } else {
-            // Timeout â€” could not acquire lock
+            // Timeout — could not acquire lock
             std::cout << "Timeout acquiring lock for value " << value << "\n";
             return false;
         }
@@ -594,11 +594,11 @@ void demo() {
 
 ### Tradeoffs
 - **Timeout prevents livelock/deadlock** but adds complexity: what to do on timeout? Log? Retry? Alert?
-- **Exponential backoff on retry:** If `try_lock_for` fails, wait with jitter before retrying â€” reduces contention.
+- **Exponential backoff on retry:** If `try_lock_for` fails, wait with jitter before retrying — reduces contention.
 
 ---
 
-## Pattern 1 â€” Summary
+## Pattern 1 — Summary
 
 | Concept | Tool | Use When |
 |---------|------|----------|
@@ -612,14 +612,14 @@ void demo() {
 
 ---
 
-# PATTERN 2 â€” Condition Variables & Semaphores
+# PATTERN 2 — Condition Variables & Semaphores
 
 > **When you hear:** "wait for a condition", "notify/signal", "producer-consumer", "bounded buffer"
 > **Reach for:** `std::condition_variable` with `std::unique_lock`
 
 ---
 
-## Q8. Condition Variable â€” Wait and Notify
+## Q8. Condition Variable — Wait and Notify
 
 ### Problem Statement
 Thread A must wait until Thread B sets a flag. Without a condition variable, Thread A would busy-spin (wasting CPU). Use `condition_variable` to sleep and wake efficiently.
@@ -655,7 +655,7 @@ public:
     // Called by the consumer/waiter
     void wait() {
         std::unique_lock<std::mutex> lock(mtx_);
-        // ALWAYS use predicate form â€” protects against spurious wakeups
+        // ALWAYS use predicate form — protects against spurious wakeups
         // Spurious wakeup: thread wakes up even though notify was not called
         cv_.wait(lock, [this] { return ready_; });
         // Equivalent to:
@@ -696,8 +696,8 @@ void demo() {
 ### Spurious Wakeup
 A condition variable can wake up without `notify_one()`/`notify_all()` being called (OS-level artifact). **Always** use the predicate form:
 ```cpp
-cv.wait(lock, predicate);  // correct â€” re-checks predicate on every wakeup
-// NOT: cv.wait(lock);     // wrong â€” may proceed without condition being true
+cv.wait(lock, predicate);  // correct — re-checks predicate on every wakeup
+// NOT: cv.wait(lock);     // wrong — may proceed without condition being true
 ```
 
 ### `notify_one` vs `notify_all`
@@ -709,7 +709,7 @@ cv.wait(lock, predicate);  // correct â€” re-checks predicate on every wake
 
 ---
 
-## Q9. Producer-Consumer â€” Bounded Buffer
+## Q9. Producer-Consumer — Bounded Buffer
 
 ### Problem Statement
 A producer generates items and puts them in a bounded buffer (fixed capacity). A consumer takes items. If the buffer is full, the producer waits; if empty, the consumer waits.
@@ -763,7 +763,7 @@ public:
         return item;
     }
 
-    // Graceful shutdown â€” wake up all waiters
+    // Graceful shutdown — wake up all waiters
     void close() {
         std::lock_guard<std::mutex> lock(mtx_);
         closed_ = true;
@@ -817,11 +817,11 @@ Produce 2 -> buf=[1,2]   -> producer resumes
 ### Tradeoffs
 - **Two CVs** (notFull + notEmpty) is the classic solution. Alternatively use one CV with `notify_all()` but that wakes both producers and consumers unnecessarily.
 - **`std::queue<T>`:** Use a circular buffer array for better cache performance in high-throughput scenarios.
-- **Multiple producers/consumers:** The same implementation handles M producers + N consumers correctly â€” each `notify_one()` wakes exactly one waiter.
+- **Multiple producers/consumers:** The same implementation handles M producers + N consumers correctly — each `notify_one()` wakes exactly one waiter.
 
 ---
 
-## Q10. Semaphore â€” Counting and Binary
+## Q10. Semaphore — Counting and Binary
 
 ### Problem Statement
 Implement a counting semaphore that limits concurrent access to a resource pool (e.g., max 3 threads can access a DB connection at once). Also implement a binary semaphore for signalling.
@@ -838,7 +838,7 @@ Implement a counting semaphore that limits concurrent access to a resource pool 
 ```cpp
 #include <mutex>
 #include <condition_variable>
-#include <semaphore>   // C++20 â€” std::counting_semaphore, std::binary_semaphore
+#include <semaphore>   // C++20 — std::counting_semaphore, std::binary_semaphore
 #include <thread>
 #include <iostream>
 
@@ -852,13 +852,13 @@ class CountingSemaphore {
 public:
     explicit CountingSemaphore(int count) : count_(count), maxCount_(count) {}
 
-    void acquire() { // P() / wait() â€” decrements count, blocks if 0
+    void acquire() { // P() / wait() — decrements count, blocks if 0
         std::unique_lock<std::mutex> lock(mtx_);
         cv_.wait(lock, [this] { return count_ > 0; });
         --count_;
     }
 
-    void release() { // V() / signal() â€” increments count, wakes one waiter
+    void release() { // V() / signal() — increments count, wakes one waiter
         std::unique_lock<std::mutex> lock(mtx_);
         if (count_ < maxCount_) ++count_;
         cv_.notify_one();
@@ -898,7 +898,7 @@ public:
     }
 };
 
-// Binary semaphore â€” used for signalling (like a condition variable but without a mutex)
+// Binary semaphore — used for signalling (like a condition variable but without a mutex)
 class BinarySemaphore {
     CountingSemaphore sem_{0}; // starts at 0 (blocked)
 public:
@@ -928,12 +928,12 @@ void demo() {
 
 ---
 
-## Q11. Barrier â€” Wait for All Threads to Reach a Point
+## Q11. Barrier — Wait for All Threads to Reach a Point
 
 ### Problem Statement
 N threads perform parallel computation in phases. All threads must complete Phase 1 before any starts Phase 2. Implement a barrier.
 
-**Real scenario:** MapReduce â€” all mappers must finish before reducers start. Parallel matrix algorithms.
+**Real scenario:** MapReduce — all mappers must finish before reducers start. Parallel matrix algorithms.
 
 - **Key concepts:** Barrier, `std::barrier` (C++20), phase synchronization
 - **Asked at:** Google, Qualcomm
@@ -965,7 +965,7 @@ public:
         std::unique_lock<std::mutex> lock(mtx_);
         int gen = generation_;
         if (--count_ == 0) {
-            // Last thread to arrive â€” wake all and reset
+            // Last thread to arrive — wake all and reset
             ++generation_;
             count_ = total_;
             cv_.notify_all();
@@ -1008,7 +1008,7 @@ int main() {
 
 ---
 
-## Q12. `std::once_flag` â€” Thread-Safe Singleton
+## Q12. `std::once_flag` — Thread-Safe Singleton
 
 ### Problem Statement
 Ensure a singleton is initialised exactly once, even if multiple threads call `getInstance()` simultaneously.
@@ -1047,7 +1047,7 @@ public:
     }
 };
 
-// CORRECT 1: call_once â€” guaranteed one-time init
+// CORRECT 1: call_once — guaranteed one-time init
 class SingletonCallOnce {
     static std::unique_ptr<SingletonCallOnce> instance_;
     static std::once_flag initFlag_;
@@ -1069,7 +1069,7 @@ public:
 std::unique_ptr<SingletonCallOnce> SingletonCallOnce::instance_;
 std::once_flag SingletonCallOnce::initFlag_;
 
-// CORRECT 2: Meyers Singleton â€” simplest, guaranteed by C++11 standard
+// CORRECT 2: Meyers Singleton — simplest, guaranteed by C++11 standard
 // Local static initialisation is thread-safe since C++11
 class MeyersSingleton {
     MeyersSingleton() { std::cout << "Meyers singleton created\n"; }
@@ -1095,13 +1095,13 @@ void demo() {
 ```
 
 ### Tradeoffs
-- **Meyers Singleton** is the recommended approach in modern C++ â€” simplest and correct.
+- **Meyers Singleton** is the recommended approach in modern C++ — simplest and correct.
 - **`call_once`** is useful when you need more control over the initialisation code.
 - **Eager initialization** (static member initialized at program start): Always safe, no lazy overhead, but initializes even if never used.
 
 ---
 
-## Pattern 2 â€” Summary
+## Pattern 2 — Summary
 
 | Concept | Tool | Use When |
 |---------|------|----------|
@@ -1114,10 +1114,10 @@ void demo() {
 
 ---
 
-# PATTERN 3 â€” Thread Pool & Task Queue
+# PATTERN 3 — Thread Pool & Task Queue
 
 > **When you hear:** "worker threads", "task queue", "parallel execution", "thread reuse"
-> **Reach for:** Thread pool â€” fixed set of threads pulling tasks from a shared queue.
+> **Reach for:** Thread pool — fixed set of threads pulling tasks from a shared queue.
 
 ---
 
@@ -1424,7 +1424,7 @@ public:
         cv_.notify_one();
     }
 
-    // Blocking dequeue â€” waits until item available
+    // Blocking dequeue — waits until item available
     T dequeue() {
         std::unique_lock<std::mutex> lock(mtx_);
         cv_.wait(lock, [this] { return !queue_.empty(); });
@@ -1433,7 +1433,7 @@ public:
         return value;
     }
 
-    // Non-blocking â€” returns nullopt if empty
+    // Non-blocking — returns nullopt if empty
     std::optional<T> tryDequeue() {
         std::lock_guard<std::mutex> lock(mtx_);
         if (queue_.empty()) return std::nullopt;
@@ -1472,7 +1472,7 @@ public:
 Implement a concurrent stack with `push`, `pop`, and `top`. Handle the race condition inherent in separate `top()` + `pop()` calls (check-then-act race).
 
 - **Key concepts:** Combined top-and-pop, exception safety
-- **LeetCode:** â€” | **Asked at:** Amazon, Bloomberg
+- **LeetCode:** — | **Asked at:** Amazon, Bloomberg
 
 ---
 
@@ -1632,8 +1632,8 @@ void demo() {
 Bucket:  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
 Stripe:  [--- stripe 0 ---]  [--- stripe 1 ---]  ...
 
-Thread A accesses bucket 2 (stripe 0) â€” locks stripe 0
-Thread B accesses bucket 6 (stripe 1) â€” locks stripe 1
+Thread A accesses bucket 2 (stripe 0) — locks stripe 0
+Thread B accesses bucket 6 (stripe 1) — locks stripe 1
 -> No contention between A and B!
 ```
 
@@ -1647,7 +1647,7 @@ Thread B accesses bucket 6 (stripe 1) â€” locks stripe 1
 
 ---
 
-## Pattern 3 â€” Summary
+## Pattern 3 — Summary
 
 | Concept | Tool | Use When |
 |---------|------|----------|
@@ -1659,7 +1659,7 @@ Thread B accesses bucket 6 (stripe 1) â€” locks stripe 1
 
 ---
 
-# PATTERN 4 â€” Atomic Operations & Memory Order
+# PATTERN 4 — Atomic Operations & Memory Order
 
 > **When you hear:** "lock-free", "CAS", "compare-and-swap", "memory fence", "atomic counter"
 > **Reach for:** `std::atomic<T>` with appropriate memory ordering.
@@ -1705,7 +1705,7 @@ public:
     void lock() {
         // Spin until we successfully set flag from false to true
         while (flag_.test_and_set(std::memory_order_acquire)) {
-            // Busy-wait â€” on x86 use PAUSE hint to reduce power/improve performance
+            // Busy-wait — on x86 use PAUSE hint to reduce power/improve performance
 #if defined(__x86_64__) || defined(__i386__)
             __builtin_ia32_pause();
 #else
@@ -1736,7 +1736,7 @@ public:
                     std::memory_order_acquire,    // success memory order
                     std::memory_order_relaxed))   // failure memory order
         {
-            expected = false; // CAS sets expected to actual value on failure â€” reset
+            expected = false; // CAS sets expected to actual value on failure — reset
             // Exponential backoff: spin for 2^backoff iterations
             for (int i = 0; i < backoff; ++i) std::this_thread::yield();
             backoff = std::min(backoff * 2, 1024);
@@ -1764,9 +1764,9 @@ void demo() {
 ### Memory Ordering Quick Reference
 | Order | Guarantee | Use When |
 |-------|-----------|----------|
-| `relaxed` | No ordering â€” just atomicity | Counter, stats (don't need sync) |
-| `acquire` | No loads/stores moved before this load | Lock acquisition â€” "see all prior writes" |
-| `release` | No loads/stores moved after this store | Lock release â€” "publish all my writes" |
+| `relaxed` | No ordering — just atomicity | Counter, stats (don't need sync) |
+| `acquire` | No loads/stores moved before this load | Lock acquisition — "see all prior writes" |
+| `release` | No loads/stores moved after this store | Lock release — "publish all my writes" |
 | `acq_rel` | Both acquire + release | RMW operations (fetch_add on mutex) |
 | `seq_cst` | Global total order | Default, safest, most expensive |
 
@@ -1780,10 +1780,10 @@ void demo() {
 
 ---
 
-## Q19. Memory Ordering â€” Acquire/Release
+## Q19. Memory Ordering — Acquire/Release
 
 ### Problem Statement
-Demonstrate why incorrect memory ordering causes bugs â€” and how `acquire`/`release` fence semantics fix them.
+Demonstrate why incorrect memory ordering causes bugs — and how `acquire`/`release` fence semantics fix them.
 
 - **Key concepts:** Memory reordering, happens-before, store-load reordering
 - **Asked at:** Intel, Qualcomm, ARM-based HFT systems
@@ -1798,7 +1798,7 @@ Demonstrate why incorrect memory ordering causes bugs â€” and how `acquire`
 #include <cassert>
 #include <iostream>
 
-// WRONG: Relaxed ordering â€” may see x=0 even after flag is set
+// WRONG: Relaxed ordering — may see x=0 even after flag is set
 namespace WrongOrdering {
     std::atomic<int>  x{0};
     std::atomic<bool> ready{false};
@@ -1825,7 +1825,7 @@ namespace CorrectOrdering {
         x.store(42, std::memory_order_relaxed);      // (A): non-atomic store is fine
         // release: everything before this store is visible to any thread
         // that subsequently does an acquire-load on 'ready'
-        ready.store(true, std::memory_order_release); // (B) â€” RELEASE fence
+        ready.store(true, std::memory_order_release); // (B) — RELEASE fence
     }
 
     void consumer() {
@@ -1927,12 +1927,12 @@ public:
                     std::memory_order_acquire,
                     std::memory_order_relaxed)) {
                 T value = std::move(oldHead->value);
-                // WARNING: Memory leak + ABA problem â€” proper impl needs hazard pointers
+                // WARNING: Memory leak + ABA problem — proper impl needs hazard pointers
                 // or deferred deletion (epoch-based reclamation)
                 delete oldHead;
                 return value;
             }
-            // CAS failed: oldHead updated to actual current head â€” retry
+            // CAS failed: oldHead updated to actual current head — retry
         }
         return std::nullopt; // stack was empty
     }
@@ -1967,7 +1967,7 @@ void demo() {
 ```
 Thread A: reads head = ptr_X (value A)
 Thread B: pops X, pushes Y, pushes X back (same address, NEW value B)
-Thread A: CAS(head, ptr_X, X->next) â€” SUCCEEDS (ptr_X matches)
+Thread A: CAS(head, ptr_X, X->next) — SUCCEEDS (ptr_X matches)
            but head->next now points to a deleted node!
 ```
 
@@ -1978,11 +1978,11 @@ Thread A: CAS(head, ptr_X, X->next) â€” SUCCEEDS (ptr_X matches)
 
 ---
 
-# PATTERN 5 â€” Concurrent Request Handling
+# PATTERN 5 — Concurrent Request Handling
 
 ---
 
-## Q21. Rate Limiter â€” Thread-Safe Token Bucket
+## Q21. Rate Limiter — Thread-Safe Token Bucket
 
 ### Problem Statement
 Implement a thread-safe rate limiter using the token bucket algorithm. Multiple threads check if their request is allowed concurrently.
@@ -2025,7 +2025,7 @@ class TokenBucketRateLimiter {
             auto it = buckets_.find(key);
             if (it != buckets_.end()) return *it->second;
         }
-        // Not found â€” upgrade to exclusive (write) lock
+        // Not found — upgrade to exclusive (write) lock
         std::unique_lock<std::shared_mutex> wlock(bucketMapMtx_);
         // Re-check (another thread may have inserted while we were upgrading)
         auto [it, inserted] = buckets_.emplace(
@@ -2112,7 +2112,7 @@ public:
 
     std::optional<V> get(const K& key) {
         // Upgrade pattern: first check with read lock, then write lock for MRU update
-        std::unique_lock<std::shared_mutex> lock(rwMtx_); // write lock â€” must move to front
+        std::unique_lock<std::shared_mutex> lock(rwMtx_); // write lock — must move to front
         auto it = map_.find(key);
         if (it == map_.end()) return std::nullopt;
         // Move to front (MRU)
@@ -2260,7 +2260,7 @@ public:
         });
     }
 
-    // Publish: calls all handlers for topic â€” concurrent-safe
+    // Publish: calls all handlers for topic — concurrent-safe
     template<typename T>
     void publish(const std::string& topic, T event) {
         std::vector<Handler> localHandlers;
@@ -2270,7 +2270,7 @@ public:
             if (it == handlers_.end()) return;
             localHandlers = it->second; // copy handler list (allows unlock before calling)
         }
-        // Call handlers outside the lock â€” avoids deadlock if handler calls publish()
+        // Call handlers outside the lock — avoids deadlock if handler calls publish()
         for (auto& h : localHandlers) h(std::make_any<T>(std::move(event)));
     }
 };
@@ -2300,7 +2300,7 @@ void demo() {
 
 ---
 
-## Q25. Circuit Breaker â€” Thread-Safe State Machine
+## Q25. Circuit Breaker — Thread-Safe State Machine
 
 ### Problem Statement
 Implement a thread-safe Circuit Breaker. Concurrent threads call services through it. State transitions (CLOSED -> OPEN -> HALF_OPEN) must be atomic.
@@ -2344,7 +2344,7 @@ private:
             failureCount_.store(0);
             std::cout << "[CB] CLOSED -> OPEN\n";
         }
-        // If CAS fails: another thread already transitioned â€” that's fine
+        // If CAS fails: another thread already transitioned — that's fine
     }
 
     void transitionToHalfOpen() {
@@ -2387,13 +2387,13 @@ public:
             if (cooldownExpired()) {
                 transitionToHalfOpen();
             } else {
-                throw std::runtime_error("Circuit OPEN â€” request rejected");
+                throw std::runtime_error("Circuit OPEN — request rejected");
             }
         }
 
         // HALF_OPEN: only one probe request allowed at a time
         if (state_.load(std::memory_order_acquire) == State::HALF_OPEN) {
-            // Allow through â€” on success: close; on failure: reopen
+            // Allow through — on success: close; on failure: reopen
         }
 
         try {
@@ -2426,7 +2426,7 @@ public:
 
 ---
 
-## Q26. Read-Copy-Update (RCU) â€” Lock-Free Reads
+## Q26. Read-Copy-Update (RCU) — Lock-Free Reads
 
 ### Problem Statement
 Implement a simple RCU-like pattern for a config store where reads are completely lock-free and writes copy-on-write.
@@ -2451,7 +2451,7 @@ Implement a simple RCU-like pattern for a config store where reads are completel
 using Config = std::unordered_map<std::string, std::string>;
 
 class RCUConfigStore {
-    // atomic<shared_ptr> â€” C++20 atomic shared_ptr support
+    // atomic<shared_ptr> — C++20 atomic shared_ptr support
     // In C++17 use std::atomic<std::shared_ptr<Config>> with std::atomic_load/store
     std::shared_ptr<const Config> current_;
     std::mutex writeMtx_; // serialise concurrent writers
@@ -2460,7 +2460,7 @@ public:
     explicit RCUConfigStore(Config initial)
         : current_(std::make_shared<Config>(std::move(initial))) {}
 
-    // READ: completely lock-free â€” just atomic load of shared_ptr
+    // READ: completely lock-free — just atomic load of shared_ptr
     std::shared_ptr<const Config> read() const {
         return std::atomic_load(&current_); // atomic load of shared_ptr
     }
@@ -2480,7 +2480,7 @@ public:
 void demo() {
     RCUConfigStore store({{"rate_limit", "100"}, {"feature_x", "on"}});
 
-    // Readers â€” no locks needed
+    // Readers — no locks needed
     std::vector<std::thread> readers;
     for (int i = 0; i < 5; ++i) {
         readers.emplace_back([&store] {
@@ -2511,7 +2511,7 @@ Old config destroyed when last reader releases its shared_ptr
 
 ---
 
-# PATTERN 6 â€” Classic Concurrency Problems
+# PATTERN 6 — Classic Concurrency Problems
 
 ---
 
@@ -2553,7 +2553,7 @@ class DiningPhilosophers {
         std::cout << "Philosopher " << id << " finished eating\n";
     }
 
-    // Alternative: scoped_lock (C++17) â€” acquires both forks atomically
+    // Alternative: scoped_lock (C++17) — acquires both forks atomically
     void thinkAndEatScopedLock(int id) {
         std::scoped_lock lock(forks_[id], forks_[(id + 1) % N]);
         std::cout << "Philosopher " << id << " eating (scoped_lock)\n";
@@ -2808,7 +2808,7 @@ public:
 
 ---
 
-# MASTER CHEATSHEET â€” C++ Concurrency
+# MASTER CHEATSHEET — C++ Concurrency
 
 ## By Concept
 
